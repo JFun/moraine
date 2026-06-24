@@ -142,15 +142,6 @@ body {
 .card.stuck h2 { color: #ffcf8a; }
 .card.stuck p { margin: 6px 4px 18px; color: var(--muted); font-size: 14.5px; line-height: 1.4; }
 
-.cardclose {
-  position: absolute; top: 12px; right: 12px;
-  width: 30px; height: 30px; border-radius: 50%;
-  background: rgba(255,255,255,.06); border: 1px solid var(--line);
-  color: var(--muted); font-size: 13px; cursor: pointer; line-height: 1;
-  display: grid; place-items: center;
-}
-.cardclose:active { transform: scale(.9); }
-.cardclose:hover { color: var(--ink); }
 .winbtns .primary.big { padding: 13px 34px; font-size: 16px; }
 
 .stars { font-size: 30px; letter-spacing: 4px; height: 34px; }

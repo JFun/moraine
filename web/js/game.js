@@ -429,11 +429,10 @@
   // ---------- buttons / levels ----------
   $("btnNext").onclick = goNext;
   $("btnStuckRetry").onclick = reset;
-  // The win card has no ✕ now (it was redundant with Next). A contextual "Retry for
-  // ★★★" appears only when you fell short of goal (toggled in onWin) — Next is always
-  // present. The dead-end card's ✕ still navigates (→ retry), never hides into a freeze.
+  // Result cards carry NO ✕ — every control navigates, so the board can never be left
+  // in a frozen won/stuck state. Win: contextual "Retry ★★★" (toggled in onWin) + Next.
+  // Dead-end: "Try again". Map escape = the always-visible top-bar Levels button.
   $("btnRetry").onclick = reset;
-  $("btnStuckClose").onclick = reset;
   const btnSound = $("btnSound");
   const syncSound = () => { btnSound.textContent = Sfx.enabled ? "🔊" : "🔇"; };
   btnSound.onclick = () => { Sfx.toggle(); syncSound(); Sfx.tap(); };
@@ -447,7 +446,6 @@
   // After the LAST board there's no "next" — every finale exit goes to the level map.
   const finaleToLevels = () => { finaleOverlay.classList.add("hidden"); openLevels(); };
   $("btnFinaleLevels").onclick = finaleToLevels;
-  $("btnFinaleClose").onclick = finaleToLevels;
   finaleOverlay.addEventListener("click", e => { if (e.target.id === "finaleOverlay") finaleToLevels(); });
 
   // ---- how-to-play intro (shown once; reopenable from Levels) ----
