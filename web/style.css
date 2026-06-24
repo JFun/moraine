@@ -150,7 +150,11 @@ body {
 #winLine b { color: var(--good); }
 .winbtns { display: flex; gap: 10px; justify-content: center; align-items: stretch; }
 .winbtns button { white-space: nowrap; }
-.winbtns .ghost { padding: 13px 18px; font-size: 15px; }
+.winbtns .ghost { padding: 13px 22px; font-size: 15px; }
+/* On the dimmed celebration a transparent ghost vanishes — give Retry a solid,
+   clearly-visible secondary fill so it reads as a real choice beside Next. */
+.win .winbtns .ghost { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.24); color: #fff; }
+.win .winbtns .ghost:active { transform: scale(.95); }
 
 /* ---- win celebration (dimmed board, big praise, radiant hero burst + confetti) ---- */
 #stage.dimmed #board { filter: brightness(.4) saturate(.85); transition: filter .3s ease; }
