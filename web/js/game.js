@@ -10,9 +10,9 @@
    idle. Motion is done with the Web Animations API (only runs DURING a swipe).
 
    NAME: "Moraine" (chosen 2026 — "Gravity Shift" was taken, 02-PRIOR-ART). The
-   `sediment.*` localStorage keys and the com.jfun.sediment bundle id keep the old
-   codename ON PURPOSE — renaming the keys would wipe saved progress, and the
-   bundle id is invisible (changing it would spawn a new App Store record). */
+   `sediment.*` localStorage keys keep the old codename ON PURPOSE — renaming them
+   would wipe saved progress and they're invisible to players. The bundle id was
+   switched to com.jfun.moraine before the first App Store submission. */
 (function () {
   "use strict";
   const E = window.GravityEngine;

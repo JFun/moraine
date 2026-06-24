@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 DEVICE_ID="B7CC8868-E918-5043-A37E-32AC17F755E7"   # iPhone 13 Pro (paired). Re-run `xcrun devicectl list devices` if stale.
-BUNDLE_ID="com.jfun.sediment"
+BUNDLE_ID="com.jfun.moraine"
 APP="build/derived/Build/Products/Debug-iphoneos/App.app"
 
 echo "— sync web payload —"
