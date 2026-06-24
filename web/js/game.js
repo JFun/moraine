@@ -44,7 +44,6 @@
   let history = [];           // undo stack: [{grid, swipes}]
   let playing = false;        // a swipe animation is in flight
   let animToken = 0;          // bumped on loadBoard to abandon stale animations
-  let autoAdvanceTimer = 0;   // perfect-clear auto-advance timer (cancelled on any nav)
 
   // ?slow=N scales animation durations (dev aid for inspecting the cascade).
   const SLOW = Math.max(1, +(new URLSearchParams(location.search).get("slow")) || 1);
@@ -58,7 +57,8 @@
   // ---------- board lifecycle ----------
   function loadBoard(i) {
     animToken++;                // abandon any in-flight swipe animation
-    clearTimeout(autoAdvanceTimer);
+    $("stage").classList.remove("dimmed");
+    $("winConfetti").innerHTML = "";
     cur = (i + BOARDS.length) % BOARDS.length;
     board = BOARDS[cur];
     grid = toGrid(board);
@@ -123,7 +123,7 @@
 
   function undo() {
     if (playing || !history.length) return;
-    clearTimeout(autoAdvanceTimer);
+    $("stage").classList.remove("dimmed");
     const prev = history.pop();
     grid = prev.grid; swipes = prev.swipes;
     // Undo is allowed AFTER a win too (rewind the finish to chase a lower count),
@@ -155,6 +155,7 @@
   function showStuck() {
     stuck = true;
     buzz("error", [10, 30, 10]); Sfx.dead();
+    $("stage").classList.add("dimmed");
     setTimeout(() => $("stuckCard").classList.remove("hidden"), 240);
   }
 
@@ -170,18 +171,16 @@
     // NOT the routine win card.
     if (cur >= BOARDS.length - 1) { buzz("success", [18, 40, 18, 40, 30]); Sfx.win(); showFinale(improved); return; }
     buzz("success", [18, 40, 18]); Sfx.win();
-    winStars.textContent = swipes <= par ? "★★★" : swipes <= par + 1 ? "★★" : "★";
-    // par is the solver's OPTIMUM (the true minimum) — the "goal". You can only ever
-    // MATCH it, never beat it; matching = ★★★ "Perfect!".
-    winTitle.textContent = swipes <= par ? "Perfect!" : "Solved!";
+    const stars = swipes <= par ? 3 : swipes <= par + 1 ? 2 : 1;
+    winStars.textContent = "★".repeat(stars) + "☆".repeat(3 - stars);
+    // par is the solver's OPTIMUM (the "goal") — you can only MATCH it (★★★ Perfect), never beat it.
+    winTitle.textContent = stars === 3 ? "Perfect!" : stars === 2 ? "Great!" : "Solved!";
     winLine.innerHTML = `Solved in <b>${swipes}</b> · goal ${par}` + (improved ? ` · <b class="newbest">new best!</b>` : "");
     $("btnNext").textContent = "Next ›";
     $("btnRetry").classList.toggle("hidden", beat);   // offer a ★★★ retry only when short of goal
+    $("stage").classList.add("dimmed");               // dim the board behind the celebration
+    launchConfetti("winConfetti");
     setTimeout(() => winCard.classList.remove("hidden"), 360);
-    // A perfect run's only choice is "Next", so don't force a tap: show the ★★★
-    // celebration briefly, then auto-advance to the next level. Tapping Next skips
-    // the wait; undo / opening Levels cancels it (clearTimeout calls elsewhere).
-    if (beat) autoAdvanceTimer = setTimeout(goNext, 360 + 1100);
   }
 
   // ---------- grand finale ----------
@@ -209,8 +208,8 @@
     setTimeout(() => $("finaleOverlay").classList.remove("hidden"), 360);
   }
 
-  function launchConfetti() {
-    const layer = $("finConfetti");
+  function launchConfetti(layerId) {
+    const layer = $(layerId || "finConfetti");
     layer.innerHTML = "";
     const colors = ["var(--block)", "var(--target)", "var(--good)", "#b8c0ff"];
     const frag = document.createDocumentFragment();
@@ -477,7 +476,6 @@
   const starsFor = (best, par) => best == null ? "" : best <= par ? "★★★" : best <= par + 1 ? "★★" : "★";
 
   function openLevels() {
-    clearTimeout(autoAdvanceTimer);
     const gridEl = $("levelGrid");
     gridEl.innerHTML = "";
     const cleared = BOARDS.filter(b => progress[b.id] !== undefined).length;

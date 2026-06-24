@@ -30,9 +30,13 @@
 
   <div id="stage">
     <div id="board"></div>
-    <div id="winCard" class="card hidden">
-      <div id="winStars" class="stars"></div>
-      <h2 id="winTitle">Solved!</h2>
+    <i id="winConfetti" class="confetti-layer" aria-hidden="true"></i>
+    <div id="winCard" class="card win hidden">
+      <h2 id="winTitle" class="praise">Perfect!</h2>
+      <div class="winHero">
+        <div class="winBurst" aria-hidden="true"></div>
+        <div id="winStars" class="stars">★★★</div>
+      </div>
       <p id="winLine">Solved in 4 · goal 5</p>
       <div class="winbtns">
         <button id="btnRetry" class="ghost hidden">↻ Retry ★★★</button>
@@ -126,10 +130,10 @@
   } catch (e) {}
 })();
 </script>
-<script src="js/engine.js?v=p22"></script>
-<script src="js/boards.js?v=p22"></script>
-<script src="js/analytics.js?v=p22"></script>
-<script src="js/audio.js?v=p22"></script>
-<script src="js/game.js?v=p22"></script>
+<script src="js/engine.js?v=p23"></script>
+<script src="js/boards.js?v=p23"></script>
+<script src="js/analytics.js?v=p23"></script>
+<script src="js/audio.js?v=p23"></script>
+<script src="js/game.js?v=p23"></script>
 </body>
 </html>
