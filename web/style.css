@@ -157,7 +157,9 @@ body {
 .card h2 { margin: 6px 0 4px; font-size: 26px; letter-spacing: .3px; }
 #winLine { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
 #winLine b { color: var(--good); }
-.winbtns { display: flex; gap: 10px; justify-content: center; }
+.winbtns { display: flex; gap: 10px; justify-content: center; align-items: stretch; }
+.winbtns button { white-space: nowrap; }
+.winbtns .ghost { padding: 13px 18px; font-size: 15px; }
 
 /* ---- footer controls ---- */
 #controls { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; height: 56px; }

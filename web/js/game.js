@@ -171,6 +171,7 @@
     winTitle.textContent = swipes <= par ? "Perfect!" : "Solved!";
     winLine.innerHTML = `Solved in <b>${swipes}</b> · goal ${par}` + (improved ? ` · <b class="newbest">new best!</b>` : "");
     $("btnNext").textContent = "Next ›";
+    $("btnRetry").classList.toggle("hidden", beat);   // offer a ★★★ retry only when short of goal
     setTimeout(() => winCard.classList.remove("hidden"), 360);
   }
 
@@ -428,9 +429,10 @@
   // ---------- buttons / levels ----------
   $("btnNext").onclick = goNext;
   $("btnStuckRetry").onclick = reset;
-  // The result cards' ✕ must lead somewhere, never just hide into a frozen board
-  // (won/stuck block swipes). Win → straight to the next level; dead-end → retry.
-  $("btnWinClose").onclick = goNext;
+  // The win card has no ✕ now (it was redundant with Next). A contextual "Retry for
+  // ★★★" appears only when you fell short of goal (toggled in onWin) — Next is always
+  // present. The dead-end card's ✕ still navigates (→ retry), never hides into a freeze.
+  $("btnRetry").onclick = reset;
   $("btnStuckClose").onclick = reset;
   const btnSound = $("btnSound");
   const syncSound = () => { btnSound.textContent = Sfx.enabled ? "🔊" : "🔇"; };
