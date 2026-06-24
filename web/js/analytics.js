@@ -1,8 +1,9 @@
-/* Analytics — salvaged from Lanthorn. COMPLETELY INERT until a measurement ID is
-   set (greybox ships with none). Event names follow Firebase conventions so a
-   later native iOS port reports apples-to-apples.
+/* Analytics. On native iOS, events log through the @capacitor-firebase/analytics
+   plugin (Firebase is configured automatically by @capacitor-firebase/app's load()).
+   On web it stays INERT unless a GA measurement ID is set. Event names follow
+   Firebase conventions.
    Events: board_start {board, par} · board_win {board, par, swipes, beatPar}
-           board_reset {board} */
+           board_reset {board} · game_complete {stars, maxStars, perfect, levels} */
 (function (root) {
   "use strict";
   const GA_MEASUREMENT_ID = "";   // ← paste "G-XXXXXXXXXX" to go live
@@ -25,7 +26,7 @@
   Track.ev = function (name, params) {
     if (!Track.enabled) return;
     try {
-      if (CAP_NATIVE) root.Capacitor.Plugins.NativeFX.track({ name, params: params || {} });
+      if (CAP_NATIVE) root.Capacitor.Plugins.FirebaseAnalytics.logEvent({ name: name, params: params || {} });
       else root.gtag("event", name, params || {});
     } catch (e) {}
   };

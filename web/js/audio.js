@@ -4,7 +4,7 @@
    A mute preference persists in localStorage. Exposed as the browser global Sfx. */
 (function (root) {
   "use strict";
-  const KEY = "sediment.muted.v1";
+  const KEY = "moraine.muted.v1";
   let ctx = null, master = null, enabled = true, primed = false, interrupted = false;
   try { enabled = localStorage.getItem(KEY) !== "1"; } catch (e) {}
 

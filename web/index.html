@@ -109,10 +109,29 @@
 </div>
 
 <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js" onerror="/* local dev: no-op */"></script>
-<script src="js/engine.js?v=p15"></script>
-<script src="js/boards.js?v=p15"></script>
-<script src="js/analytics.js?v=p15"></script>
-<script src="js/audio.js?v=p15"></script>
-<script src="js/game.js?v=p15"></script>
+<script>
+/* One-time storage-key migration: the prefix was renamed sediment.* → moraine.*
+   (the app is "Moraine"). Copy any old values forward so saved progress/settings
+   carry over; a no-op once migrated or on a fresh install. Runs before the game
+   scripts read their keys. */
+(function () {
+  try {
+    var mig = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf("sediment.") === 0) mig.push(k);
+    }
+    mig.forEach(function (k) {
+      var nk = "moraine." + k.slice(9);
+      if (localStorage.getItem(nk) === null) localStorage.setItem(nk, localStorage.getItem(k));
+    });
+  } catch (e) {}
+})();
+</script>
+<script src="js/engine.js?v=p17"></script>
+<script src="js/boards.js?v=p17"></script>
+<script src="js/analytics.js?v=p17"></script>
+<script src="js/audio.js?v=p17"></script>
+<script src="js/game.js?v=p17"></script>
 </body>
 </html>

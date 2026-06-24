@@ -22,9 +22,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         do {
             try s.setCategory(.playback, options: [.mixWithOthers])
             try s.setActive(true)
-            NSLog("SEDIMENT-AUDIO ok category=%@ active=true", s.category.rawValue)
+            NSLog("MORAINE-AUDIO ok category=%@ active=true", s.category.rawValue)
         } catch {
-            NSLog("SEDIMENT-AUDIO ERROR %@", error.localizedDescription)
+            NSLog("MORAINE-AUDIO ERROR %@", error.localizedDescription)
         }
     }
 

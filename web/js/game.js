@@ -9,10 +9,10 @@
    DOM elements are pixel-snapped individually by the compositor → rock-solid when
    idle. Motion is done with the Web Animations API (only runs DURING a swipe).
 
-   NAME: "Moraine" (chosen 2026 — "Gravity Shift" was taken, 02-PRIOR-ART). The
-   `sediment.*` localStorage keys keep the old codename ON PURPOSE — renaming them
-   would wipe saved progress and they're invisible to players. The bundle id was
-   switched to com.jfun.moraine before the first App Store submission. */
+   NAME: "Moraine" (chosen 2026 — "Gravity Shift" was taken, 02-PRIOR-ART). Storage
+   keys use the `moraine.*` prefix; a one-time migration in index.html copies any
+   pre-rename `sediment.*` values forward so saved progress carries over. Bundle id
+   is com.jfun.moraine. */
 (function () {
   "use strict";
   const E = window.GravityEngine;
@@ -30,7 +30,7 @@
   const winCard = $("winCard"), winStars = $("winStars"), winTitle = $("winTitle"), winLine = $("winLine");
 
   // ---- progress (best swipes per board) ----
-  const PKEY = "sediment.progress.v1";
+  const PKEY = "moraine.progress.v1";
   let progress = {};
   try { progress = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) {}
   const saveProgress = () => { try { localStorage.setItem(PKEY, JSON.stringify(progress)); } catch (e) {} };
@@ -39,7 +39,7 @@
   let cur = 0;                 // board index
   let board, grid, mode, par; // current board (grid = logical truth)
   let swipes = 0, won = false, stuck = false, firstSwipeDone = false, wallTipActive = false;
-  const WALLTIP_KEY = "sediment.seen.walltip.v1";
+  const WALLTIP_KEY = "moraine.seen.walltip.v1";
   const hasWall = g => g.some(row => row.some(v => v === WALL));
   let history = [];           // undo stack: [{grid, swipes}]
   let playing = false;        // a swipe animation is in flight
@@ -445,7 +445,7 @@
   finaleOverlay.addEventListener("click", e => { if (e.target.id === "finaleOverlay") finaleOverlay.classList.add("hidden"); });
 
   // ---- how-to-play intro (shown once; reopenable from Levels) ----
-  const INTRO_KEY = "sediment.seen.intro.v1";
+  const INTRO_KEY = "moraine.seen.intro.v1";
   const openIntro = () => { $("introOverlay").classList.remove("hidden"); startDemo(); };
   const closeIntro = () => {
     $("introOverlay").classList.add("hidden");
