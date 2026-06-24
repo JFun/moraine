@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/dev/test.sh)",
+      "Bash(./scripts/dev/test.sh *)",
+      "Bash(node scripts/dev/*)",
+      "Bash(node --check *)",
+      "Bash(node -e *)",
+      "Bash(./scripts/dev/deploy_ios.sh)",
+      "Bash(./scripts/dev/deploy_ios.sh *)",
+      "Bash(xcrun *)",
+      "Bash(xcodebuild *)",
+      "Bash(npx cap *)",
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(chmod +x scripts/*)",
+      "Bash(plutil *)",
+      "Bash(security cms *)",
+      "Bash(sips *)",
+      "Bash(jq *)"
+    ]
+  }
+}

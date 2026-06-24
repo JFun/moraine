@@ -1,0 +1,12 @@
+{
+  "appId": "com.jfun.sediment",
+  "appName": "Moraine",
+  "webDir": "web",
+  "backgroundColor": "#0c0e17",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "zoomEnabled": false,
+    "backgroundColor": "#0c0e17"
+  }
+}
