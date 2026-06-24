@@ -616,4 +616,30 @@
   let seenIntro = false;
   try { seenIntro = !!localStorage.getItem(INTRO_KEY); } catch (e) {}
   if (!seenIntro) openIntro();   // first launch → teach the rules
+
+  // ---- dev screenshot harness (App Store captures) — inert unless ?shot= is set ----
+  //   ?shot=play&b=<id>  ·  ?shot=win&b=<id>&s=<1-3>  ·  ?shot=levels  ·  ?shot=howto
+  try {
+    const q = new URLSearchParams(location.search), shot = q.get("shot");
+    if (shot) {
+      try { localStorage.setItem(INTRO_KEY, "1"); localStorage.setItem(WALLTIP_KEY, "1"); } catch (e) {}
+      const idxOf = id => { const i = BOARDS.findIndex(b => b.id === id); return i < 0 ? 0 : i; };
+      if (shot !== "howto") $("introOverlay").classList.add("hidden");
+      if (shot === "howto") openIntro();
+      else if (shot === "levels") {
+        BOARDS.slice(0, 11).forEach((b, i) => { progress[b.id] = b.par + (i % 4 === 2 ? 1 : 0); });
+        saveProgress(); hideSwipeCue(); openLevels();
+      } else if (shot === "win") {
+        loadBoard(idxOf(q.get("b") || "rapids")); hideSwipeCue();
+        const stars = Math.max(1, Math.min(3, +(q.get("s") || 3)));
+        won = true;
+        winStars.textContent = "★".repeat(stars) + "☆".repeat(3 - stars);
+        winTitle.textContent = stars === 3 ? "Perfect!" : stars === 2 ? "Great!" : "Solved!";
+        winLine.innerHTML = `Solved in <b>${board.par + (3 - stars)}</b> · goal ${board.par}`;
+        $("btnRetry").classList.toggle("hidden", stars === 3);
+        $("stage").classList.add("dimmed"); launchConfetti("winConfetti");
+        winCard.classList.remove("hidden");
+      } else { loadBoard(idxOf(q.get("b") || "rapids")); hideSwipeCue(); }
+    }
+  } catch (e) {}
 })();
