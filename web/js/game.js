@@ -44,6 +44,7 @@
   let history = [];           // undo stack: [{grid, swipes}]
   let playing = false;        // a swipe animation is in flight
   let animToken = 0;          // bumped on loadBoard to abandon stale animations
+  let autoAdvanceTimer = 0;   // perfect-clear auto-advance timer (cancelled on any nav)
 
   // ?slow=N scales animation durations (dev aid for inspecting the cascade).
   const SLOW = Math.max(1, +(new URLSearchParams(location.search).get("slow")) || 1);
@@ -57,6 +58,7 @@
   // ---------- board lifecycle ----------
   function loadBoard(i) {
     animToken++;                // abandon any in-flight swipe animation
+    clearTimeout(autoAdvanceTimer);
     cur = (i + BOARDS.length) % BOARDS.length;
     board = BOARDS[cur];
     grid = toGrid(board);
@@ -87,6 +89,8 @@
     Track.ev("board_start", { board: board.id, par });
     resize();                   // geometry + sockets (first time / on change)
     renderBoard();              // tiles for this board
+    boardEl.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }],
+      { duration: 240, easing: "cubic-bezier(.2,.7,.3,1)" });   // subtle "new level" entrance / transition
     // First board: a bobbing "swipe down" cue in the empty middle.
     if (cur === 0 && !firstSwipeDone) showSwipeCue(); else hideSwipeCue();
   }
@@ -119,6 +123,7 @@
 
   function undo() {
     if (playing || !history.length) return;
+    clearTimeout(autoAdvanceTimer);
     const prev = history.pop();
     grid = prev.grid; swipes = prev.swipes;
     // Undo is allowed AFTER a win too (rewind the finish to chase a lower count),
@@ -173,6 +178,10 @@
     $("btnNext").textContent = "Next ›";
     $("btnRetry").classList.toggle("hidden", beat);   // offer a ★★★ retry only when short of goal
     setTimeout(() => winCard.classList.remove("hidden"), 360);
+    // A perfect run's only choice is "Next", so don't force a tap: show the ★★★
+    // celebration briefly, then auto-advance to the next level. Tapping Next skips
+    // the wait; undo / opening Levels cancels it (clearTimeout calls elsewhere).
+    if (beat) autoAdvanceTimer = setTimeout(goNext, 360 + 1100);
   }
 
   // ---------- grand finale ----------
@@ -468,6 +477,7 @@
   const starsFor = (best, par) => best == null ? "" : best <= par ? "★★★" : best <= par + 1 ? "★★" : "★";
 
   function openLevels() {
+    clearTimeout(autoAdvanceTimer);
     const gridEl = $("levelGrid");
     gridEl.innerHTML = "";
     const cleared = BOARDS.filter(b => progress[b.id] !== undefined).length;
