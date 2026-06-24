@@ -1,52 +1,57 @@
 from PIL import Image, ImageDraw, ImageFilter
-
 SZ = 1024
-# ---- background: vertical gradient (dark "space") + soft glow ----
-top, bot = (33, 41, 75), (11, 13, 21)      # #21294b -> #0b0d15
-bg = Image.new("RGB", (SZ, SZ))
-bd = ImageDraw.Draw(bg)
+# richer dark background: vertical gradient (brighter top)
+top, bot = (38, 47, 86), (10, 12, 20)
+bg = Image.new("RGB", (SZ, SZ)); bd = ImageDraw.Draw(bg)
 for y in range(SZ):
-    t = (y / (SZ - 1)) ** 0.9
-    bd.line([(0, y), (SZ, y)], fill=tuple(round(top[i] + (bot[i] - top[i]) * t) for i in range(3)))
+    t = (y / (SZ - 1)) ** 0.85
+    bd.line([(0, y), (SZ, y)], fill=tuple(round(top[i] + (bot[i]-top[i])*t) for i in range(3)))
 base = bg.convert("RGBA")
 
-# warm-cool glow behind the cluster
-glow = Image.new("RGBA", (SZ, SZ), (0, 0, 0, 0))
-ImageDraw.Draw(glow).ellipse([SZ*0.16, SZ*0.18, SZ*0.84, SZ*0.86], fill=(110, 110, 190, 95))
-base.alpha_composite(glow.filter(ImageFilter.GaussianBlur(120)))
-
-S, R, G = 300, 66, 24
-bx_l = (SZ - (2*S + G)) // 2          # bottom-left blue
-bx_r = bx_l + S + G                   # bottom-right blue
+S, R, G = 318, 72, 26
+bx_l = (SZ - (2*S + G)) // 2
+bx_r = bx_l + S + G
 by = 560
-tx = (SZ - S) // 2                    # top-center gold (landed on the stack)
+tx = (SZ - S) // 2
 ty = by - S - G
 
-# soft drop shadows under the tiles (depth)
-shadow = Image.new("RGBA", (SZ, SZ), (0, 0, 0, 0))
-sd = ImageDraw.Draw(shadow)
-for (x, y) in [(bx_l, by), (bx_r, by), (tx, ty)]:
-    sd.rounded_rectangle([x, y + 20, x + S, y + S + 20], radius=R, fill=(0, 0, 0, 160))
-base.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(24)))
+def glow(cx, cy, rx, ry, color, blur):
+    g = Image.new("RGBA", (SZ, SZ), (0,0,0,0))
+    ImageDraw.Draw(g).ellipse([cx-rx, cy-ry, cx+rx, cy+ry], fill=color)
+    return g.filter(ImageFilter.GaussianBlur(blur))
 
-# tiles (match the in-game look: flat fill + top sheen; gold target has a white diamond)
-tiles = Image.new("RGBA", (SZ, SZ), (0, 0, 0, 0))
-detail = Image.new("RGBA", (SZ, SZ), (0, 0, 0, 0))   # gloss + diamond blend OVER opaque tiles
-td = ImageDraw.Draw(tiles)
-dt = ImageDraw.Draw(detail)
-def tile(x, y, color, target=False):
-    td.rounded_rectangle([x, y, x + S, y + S], radius=R, fill=color)            # opaque fill
-    sx, sy = x + S*0.12, y + S*0.10
-    dt.rounded_rectangle([sx, sy, sx + S*0.76, sy + S*0.28], radius=int(S*0.14), fill=(255, 255, 255, 32))  # subtle gloss
+# luminous halos: warm gold behind the target, cool blue behind the blocks
+base.alpha_composite(glow(SZ/2, by + S/2, S*1.45, S*0.85, (95, 115, 255, 95), 105))
+base.alpha_composite(glow(tx + S/2, ty + S/2, S*0.95, S*0.95, (255, 180, 70, 130), 85))
+
+# drop shadows for depth/separation
+shadow = Image.new("RGBA", (SZ, SZ), (0,0,0,0)); sd = ImageDraw.Draw(shadow)
+for (x, y) in [(bx_l, by), (bx_r, by), (tx, ty)]:
+    sd.rounded_rectangle([x, y+26, x+S, y+S+26], radius=R, fill=(0,0,0,175))
+base.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(30)))
+
+# gradient-filled rounded tiles (3D: lighter top -> darker bottom)
+def grad_tile(x, y, c_top, c_bot):
+    g = Image.new("RGB", (S, S)); gd = ImageDraw.Draw(g)
+    for i in range(S):
+        t = i / (S - 1)
+        gd.line([(0, i), (S, i)], fill=tuple(round(c_top[k] + (c_bot[k]-c_top[k])*t) for k in range(3)))
+    m = Image.new("L", (S, S), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, S-1, S-1], radius=R, fill=255)
+    base.paste(g, (x, y), m)
+grad_tile(bx_l, by, (112, 127, 255), (66, 78, 226))
+grad_tile(bx_r, by, (112, 127, 255), (66, 78, 226))
+grad_tile(tx, ty, (255, 214, 120), (245, 167, 52))
+
+# detail layer (blends over opaque tiles): glossy top highlight + white diamond
+detail = Image.new("RGBA", (SZ, SZ), (0,0,0,0)); dt = ImageDraw.Draw(detail)
+def detail_for(x, y, target=False):
+    sx, sy = x + S*0.12, y + S*0.09
+    dt.rounded_rectangle([sx, sy, sx + S*0.76, sy + S*0.26], radius=int(S*0.13), fill=(255,255,255,60))
     if target:
-        cx, cy, d = x + S/2, y + S/2, S*0.17
-        dt.polygon([(cx, cy - d), (cx + d, cy), (cx, cy + d), (cx - d, cy)], fill=(255, 255, 255, 240))
-tile(bx_l, by, (91, 108, 255, 255))
-tile(bx_r, by, (91, 108, 255, 255))
-tile(tx, ty, (255, 194, 74, 255), target=True)
-base.alpha_composite(tiles)
+        cx, cy, d = x + S/2, y + S/2, S*0.16
+        dt.polygon([(cx, cy-d), (cx+d, cy), (cx, cy+d), (cx-d, cy)], fill=(255,255,255,250))
+detail_for(bx_l, by); detail_for(bx_r, by); detail_for(tx, ty, target=True)
 base.alpha_composite(detail)
 
-out = "/tmp/moraine_icon.png"
-base.convert("RGB").save(out)   # RGB = no alpha channel (App Store requirement)
-print("saved", out)
+base.convert("RGB").save("/tmp/moraine_icon2.png")
+print("saved /tmp/moraine_icon2.png")
