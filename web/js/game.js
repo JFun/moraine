@@ -395,6 +395,19 @@
   boardEl.addEventListener("pointerup", e => {
     if (!down) return;
     const dx = e.clientX - down.x, dy = e.clientY - down.y; down = null;
+    // A finished board (won/stuck) whose result card was dismissed via its ✕ — the
+    // close only PEEKS at the board; any tap or swipe brings the card back, so the
+    // player is never stranded with a frozen board and no visible way forward.
+    if (won) {
+      const card = cur >= BOARDS.length - 1 ? $("finaleOverlay") : winCard;
+      if (card.classList.contains("hidden")) card.classList.remove("hidden");
+      return;
+    }
+    if (stuck) {
+      const sc = $("stuckCard");
+      if (sc.classList.contains("hidden")) sc.classList.remove("hidden");
+      return;
+    }
     const adx = Math.abs(dx), ady = Math.abs(dy);
     if (Math.max(adx, ady) < 20) return;
     trySwipe(adx > ady ? (dx > 0 ? "R" : "L") : (dy > 0 ? "D" : "U"));
