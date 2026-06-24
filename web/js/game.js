@@ -395,19 +395,6 @@
   boardEl.addEventListener("pointerup", e => {
     if (!down) return;
     const dx = e.clientX - down.x, dy = e.clientY - down.y; down = null;
-    // A finished board (won/stuck) whose result card was dismissed via its ✕ — the
-    // close only PEEKS at the board; any tap or swipe brings the card back, so the
-    // player is never stranded with a frozen board and no visible way forward.
-    if (won) {
-      const card = cur >= BOARDS.length - 1 ? $("finaleOverlay") : winCard;
-      if (card.classList.contains("hidden")) card.classList.remove("hidden");
-      return;
-    }
-    if (stuck) {
-      const sc = $("stuckCard");
-      if (sc.classList.contains("hidden")) sc.classList.remove("hidden");
-      return;
-    }
     const adx = Math.abs(dx), ady = Math.abs(dy);
     if (Math.max(adx, ady) < 20) return;
     trySwipe(adx > ady ? (dx > 0 ? "R" : "L") : (dy > 0 ? "D" : "U"));
@@ -441,8 +428,10 @@
   // ---------- buttons / levels ----------
   $("btnNext").onclick = goNext;
   $("btnStuckRetry").onclick = reset;
-  $("btnWinClose").onclick = () => winCard.classList.add("hidden");
-  $("btnStuckClose").onclick = () => $("stuckCard").classList.add("hidden");
+  // The result cards' ✕ must lead somewhere, never just hide into a frozen board
+  // (won/stuck block swipes). Win → straight to the next level; dead-end → retry.
+  $("btnWinClose").onclick = goNext;
+  $("btnStuckClose").onclick = reset;
   const btnSound = $("btnSound");
   const syncSound = () => { btnSound.textContent = Sfx.enabled ? "🔊" : "🔇"; };
   btnSound.onclick = () => { Sfx.toggle(); syncSound(); Sfx.tap(); };
@@ -453,9 +442,11 @@
 
   // ---- finale buttons ----
   const finaleOverlay = $("finaleOverlay");
-  $("btnFinaleLevels").onclick = () => { finaleOverlay.classList.add("hidden"); openLevels(); };
-  $("btnFinaleClose").onclick = () => finaleOverlay.classList.add("hidden");
-  finaleOverlay.addEventListener("click", e => { if (e.target.id === "finaleOverlay") finaleOverlay.classList.add("hidden"); });
+  // After the LAST board there's no "next" — every finale exit goes to the level map.
+  const finaleToLevels = () => { finaleOverlay.classList.add("hidden"); openLevels(); };
+  $("btnFinaleLevels").onclick = finaleToLevels;
+  $("btnFinaleClose").onclick = finaleToLevels;
+  finaleOverlay.addEventListener("click", e => { if (e.target.id === "finaleOverlay") finaleToLevels(); });
 
   // ---- how-to-play intro (shown once; reopenable from Levels) ----
   const INTRO_KEY = "moraine.seen.intro.v1";
