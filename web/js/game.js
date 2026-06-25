@@ -640,6 +640,9 @@
         $("stage").classList.add("dimmed"); launchConfetti("winConfetti");
         winCard.classList.remove("hidden");
       } else { loadBoard(idxOf(q.get("b") || "rapids")); hideSwipeCue(); }
+      // Headless capture can size the board before the viewport settles to the final
+      // width — force a few recomputes so it fits exactly (no right-edge clipping).
+      [120, 400, 900].forEach(t => setTimeout(() => { lastSize = -1; resize(); }, t));
     }
   } catch (e) {}
 })();
