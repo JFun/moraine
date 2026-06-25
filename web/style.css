@@ -323,7 +323,10 @@ body {
   .win #winLine { font-size: 19px; }
   .winbtns .primary.big { padding: 16px 42px; font-size: 19px; }
   .winbtns .ghost { padding: 16px 24px; font-size: 18px; }
-  .overlayCard { max-width: 560px; }
+  /* levels picker fills the iPad canvas: wider card + 5-col grid (phone keeps 420px/3-col).
+     intro card stays narrow via the more-specific .overlayCard.intro rule. */
+  #levelsOverlay .overlayCard { width: min(94%, 880px); max-height: 88vh; }
+  #levelGrid { grid-template-columns: repeat(5, 1fr); gap: 14px; }
   .overlayHead h2 { font-size: 24px; }
   .lvl .num { font-size: 24px; }
   .lvl .nm { font-size: 12px; }

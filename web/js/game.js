@@ -620,7 +620,9 @@
   // ---- dev screenshot harness (App Store captures) — inert unless ?shot= is set ----
   //   ?shot=play&b=<id>  ·  ?shot=win&b=<id>&s=<1-3>  ·  ?shot=levels  ·  ?shot=howto
   try {
-    const q = new URLSearchParams(location.search), shot = q.get("shot");
+    // window.__SHOT__ lets a bundled capacitor:// build be driven (no query string);
+    // undefined for real users, so this stays inert.
+    const q = new URLSearchParams(window.__SHOT__ || location.search), shot = q.get("shot");
     if (shot) {
       try { localStorage.setItem(INTRO_KEY, "1"); localStorage.setItem(WALLTIP_KEY, "1"); } catch (e) {}
       const idxOf = id => { const i = BOARDS.findIndex(b => b.id === id); return i < 0 ? 0 : i; };
@@ -633,6 +635,7 @@
         loadBoard(idxOf(q.get("b") || "rapids")); hideSwipeCue();
         const stars = Math.max(1, Math.min(3, +(q.get("s") || 3)));
         won = true;
+        swipes = board.par + (3 - stars); updateHud();   // top counter matches the win card
         winStars.textContent = "★".repeat(stars) + "☆".repeat(3 - stars);
         winTitle.textContent = stars === 3 ? "Perfect!" : stars === 2 ? "Great!" : "Solved!";
         winLine.innerHTML = `Solved in <b>${board.par + (3 - stars)}</b> · goal ${board.par}`;
