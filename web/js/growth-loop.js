@@ -98,7 +98,7 @@
   function parseLink(search) {
     const q = new URLSearchParams(search != null ? search : (root.location ? root.location.search : ""));
     const out = {};
-    if (q.has("d")) out.d = parseInt(q.get("d"), 10);
+    if (q.has("d")) { const n = parseInt(q.get("d"), 10); if (Number.isInteger(n)) out.d = n; }  // ignore a non-integer ?d (NaN) — never let it drive the daily
     if (q.has("ref")) out.ref = q.get("ref");
     return out;
   }
@@ -134,9 +134,12 @@
     bump(day) {
       const di = (day == null) ? dayIndex() : day;
       const s = streakRead();
-      if (s.lastDay === di) return s;                       // already counted today
-      if (s.lastDay === di - 1) s.count += 1;               // consecutive
-      else s.count = 1;                                     // first ever, or a gap
+      // Only the most-recent day ever advances the streak. A bad or back-filled day —
+      // a non-integer handle, or solving a friend's OLDER shared ?d link — must NEVER
+      // rewind lastDay or collapse a healthy streak (that was the worst sweep finding).
+      if (!Number.isInteger(di)) return s;
+      if (s.lastDay != null && di <= s.lastDay) return s;   // same day (already counted) or an older day (ignore)
+      s.count = (s.lastDay === di - 1) ? s.count + 1 : 1;   // consecutive extends; a true gap resets to 1
       s.lastDay = di;
       if (!s.best || s.count > s.best) s.best = s.count;
       return streakWrite(s);

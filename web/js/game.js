@@ -160,6 +160,10 @@
   }
   function reset() {
     if (playing) return;
+    // A SUBMITTED daily is one-attempt: don't let reset() (incl. the 'r' key) replay it —
+    // that would overwrite the recorded result and double-fire the funnel. Retrying BEFORE
+    // submitting (not yet isPlayed, e.g. off the stuck card) stays allowed.
+    if (dailyMode && GL && GL.Daily.isPlayed(dailyDay)) return;
     Track.ev("board_reset", { board: board.id });
     loadBoard(cur, dailyMode);   // a daily retry stays the daily (one attempt, not yet submitted)
   }
@@ -182,16 +186,24 @@
   function startDaily(day, ref) {
     if (!GL) { openLevels(); return; }
     closeOverlays();
-    dailyDay = (day == null) ? GL.Daily.dayIndex() : day;
-    dailyRef = ref || null;
+    const di = (day == null) ? GL.Daily.dayIndex() : day;
+    dailyRef = ref || (di === dailyDay ? dailyRef : null);   // keep an inbound link's ref when re-entering the same day (don't drop attribution)
+    dailyDay = di;
     dailyVariant = GL.ShareCard.pickVariant(dailyDay);
     const idx = GL.Daily.seedForDay(dailyDay) % BOARDS.length;
-    GL.LoopTrack.dailyStart(dailyDay);
     loadBoard(idx, true);
     if (GL.Daily.isPlayed(dailyDay)) {
+      // Already solved → show the locked result. loadBoard zeroed the HUD to 0/par and
+      // re-rendered the UNSOLVED board; restore the recorded count (so the counter reads
+      // e.g. 9/4, matching "Solved in 9 · goal 4") and clear the board so the dimmed
+      // backdrop reads as solved instead of a fresh, untouched puzzle.
       const res = GL.Daily.playedResult(dailyDay) || {};
       won = true;                              // lock the board from further swipes
-      showDailyCard(Object.assign({ fresh: false, streak: GL.Streak.display(dailyDay) }, res, { stars: starsOf(res) }));
+      if (res.swipes != null) { swipes = res.swipes; updateHud(); }
+      grid = grid.map(r => r.map(() => EMPTY)); renderBoard();
+      showDailyCard(Object.assign({ fresh: false, today: true, streak: GL.Streak.display(dailyDay) }, res, { stars: starsOf(res) }));
+    } else {
+      GL.LoopTrack.dailyStart(dailyDay);       // k-funnel: count only a genuine fresh start, not a locked re-view
     }
   }
 
@@ -199,21 +211,30 @@
 
   function onDailyWin() {
     const stars = swipes <= par ? 3 : swipes <= par + 1 ? 2 : 1;
-    GL.Daily.markPlayed(dailyDay, { swipes, par });        // one-attempt lock
-    const s = GL.Streak.bump(dailyDay);                    // retention spine
+    // Only TODAY's solve is the user's official daily: it locks (one attempt) and feeds
+    // the streak. Solving a shared link for ANOTHER day (a friend's old/forwarded link)
+    // is a "try this board" — playable, but it must NOT lock the user out of that day or
+    // touch their streak (a lingering chat link silently wiping a streak was the worst bug).
+    const isToday = dailyDay === GL.Daily.dayIndex();
+    let streakCount = GL.Streak.display(GL.Daily.dayIndex());
+    if (isToday) {
+      GL.Daily.markPlayed(dailyDay, { swipes, par });      // one-attempt lock (today only)
+      streakCount = GL.Streak.bump(dailyDay).count;        // retention spine (today only)
+    }
     GL.LoopTrack.dailySolve({ swipes, par });
     if (dailyRef) GL.LoopTrack.playFromLink({ ref: dailyRef, variant: dailyVariant });
     buzz("success", [18, 40, 18]); Sfx.win();
     updateHud();
-    showDailyCard({ swipes, par, stars, streak: s.count, fresh: true });
+    showDailyCard({ swipes, par, stars, streak: streakCount, fresh: true, today: isToday });
   }
 
   function showDailyCard(r) {
     won = true;
+    const offDay = r.today === false;   // a shared board for a day that isn't the user's own daily
     winStars.textContent = "★".repeat(r.stars) + "☆".repeat(3 - r.stars);
-    winTitle.textContent = r.fresh ? (r.stars === 3 ? "Daily perfect!" : "Daily solved!") : "Today's daily";
+    winTitle.textContent = r.fresh ? (offDay ? "Solved!" : (r.stars === 3 ? "Daily perfect!" : "Daily solved!")) : "Today's daily";
     winLine.innerHTML = (r.swipes != null) ? `Solved in <b>${r.swipes}</b> · goal ${r.par}` : "Solved";
-    winStreak.textContent = r.streak > 0 ? `🔥 ${r.streak}-day streak` : "";
+    winStreak.textContent = (!offDay && r.streak > 0) ? `🔥 ${r.streak}-day streak` : "";
     winStreak.classList.toggle("hidden", !winStreak.textContent);
     btnNext.classList.add("hidden");
     btnRetry.classList.add("hidden");

@@ -80,5 +80,14 @@ eq(GL.Streak.display(103), 1, "streak display: today = count");
 eq(GL.Streak.display(104), 1, "streak display: the day after = count (not yet lapsed)");
 eq(GL.Streak.display(105), 0, "streak display: after a missed day = 0 (lapsed)");
 
+// ---- streak NEVER rewinds: an older back-filled day (solving a friend's OLD shared ?d
+//      link) or a non-integer day must not collapse a healthy streak (worst sweep finding) ----
+localStorage.clear();
+GL.Streak.bump(200); GL.Streak.bump(201);                 // count 2, lastDay 201
+eq(GL.Streak.bump(150).count, 2, "streak: an older back-filled day is ignored (no rewind)");
+eq(GL.Streak.current().lastDay, 201, "streak: lastDay is NOT rewound by an older day");
+eq(GL.Streak.bump(NaN).count, 2, "streak: a non-integer day is ignored");
+eq(GL.Streak.bump(202).count, 3, "streak: a real consecutive day still extends after bad inputs");
+
 if (fail) { console.error("\nGOLDEN FAILED (" + fail + ") — determinism changed; clients will desync."); process.exit(1); }
 console.log("growth-loop determinism golden: OK");
