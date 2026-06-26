@@ -17,7 +17,4 @@ node scripts/dev/engine-tests.cjs
 echo "— board report (solvable + par + mash) —"
 node scripts/dev/solver.cjs
 
-echo "— growth-loop determinism golden —"
-node scripts/dev/golden.cjs
-
 echo "ALL TESTS PASSED"

@@ -19,23 +19,6 @@
   const { BOARDS, toGrid } = window.GravityBoards;
   const Track = window.Track || { ev() {} };
   const Sfx = window.Sfx || { unlock() {}, slide() {}, clear() {}, blocked() {}, win() {}, dead() {}, tap() {}, toggle() { return false; }, get enabled() { return false; } };
-
-  // ---- @jfun/growth-loop: the daily + streak + share loop (Moraine v1.1) ----
-  // The package owns the loop; this file just wires it to the board surface. A
-  // graceful stub keeps the level game working if the script ever fails to load.
-  const GL = window.GrowthLoop || null;
-  if (GL) GL.configure({
-    namespace: "moraine",
-    epoch: new Date("2026-06-25T00:00:00Z"),   // launch day → Daily #1
-    track: window.Track,
-  });
-  const DAILY_URL = "https://jfun.github.io/moraine/play/";   // instant-play web surface the share card links to
-  let dailyMode = false;       // the current board is today's daily
-  let dailyDay = 0;            // its dayIndex (the handle)
-  let dailyRef = null;         // inbound ref captured from a shared link
-  let dailyVariant = null;     // share-card A/B variant for this daily
-  let preDailyIdx = 0;         // level board to return to when leaving the daily
-
   const N = 6;
   const { EMPTY, BLOCK, WALL, TARGET } = E;
 
@@ -45,7 +28,6 @@
   const elName = $("bnLabel"), elGoal = $("bnGoal"), elSwipes = $("cSwipes"), elPar = $("cPar");
   const elCounter = $("counter"), elHint = $("hint");
   const winCard = $("winCard"), winStars = $("winStars"), winTitle = $("winTitle"), winLine = $("winLine");
-  const winStreak = $("winStreak"), btnShare = $("btnShare"), btnDailyLevels = $("btnDailyLevels"), btnNext = $("btnNext"), btnRetry = $("btnRetry");
 
   // ---- progress (best swipes per board) ----
   const PKEY = "moraine.progress.v1";
@@ -73,9 +55,8 @@
   const cloneGrid = g => g.map(r => r.slice());
 
   // ---------- board lifecycle ----------
-  function loadBoard(i, daily) {
+  function loadBoard(i) {
     animToken++;                // abandon any in-flight swipe animation
-    dailyMode = !!daily;        // level taps (no flag) always leave daily mode
     $("stage").classList.remove("dimmed");
     $("winConfetti").innerHTML = "";
     cur = (i + BOARDS.length) % BOARDS.length;
@@ -87,13 +68,7 @@
     winCard.classList.add("hidden");
     $("stuckCard").classList.add("hidden");
     $("finaleOverlay").classList.add("hidden");
-    elName.textContent = dailyMode ? ("Daily #" + GL.Daily.number(dailyDay)) : board.name;
-    if (!dailyMode) {   // keep the level win card pristine (Next ›, no streak/share)
-      winStreak.classList.add("hidden");
-      btnShare.classList.add("hidden");
-      btnDailyLevels.classList.add("hidden");
-      btnNext.classList.remove("hidden");
-    }
+    elName.textContent = board.name;
     elGoal.textContent = mode === "targets" ? "clear the lights" : "clear the board";
     elPar.textContent = par;
     updateHud();
@@ -148,9 +123,6 @@
 
   function undo() {
     if (playing || !history.length) return;
-    // A SUBMITTED daily is one-attempt: 'z' must not rewind past the win to replay it
-    // (would re-fire the solve funnel + overwrite the recorded result). Same guard reset() has.
-    if (dailyMode && GL && GL.Daily.isPlayed(dailyDay)) return;
     $("stage").classList.remove("dimmed");
     const prev = history.pop();
     grid = prev.grid; swipes = prev.swipes;
@@ -164,120 +136,8 @@
   }
   function reset() {
     if (playing) return;
-    // A SUBMITTED daily is one-attempt: don't let reset() (incl. the 'r' key) replay it —
-    // that would overwrite the recorded result and double-fire the funnel. Retrying BEFORE
-    // submitting (not yet isPlayed, e.g. off the stuck card) stays allowed.
-    if (dailyMode && GL && GL.Daily.isPlayed(dailyDay)) return;
     Track.ev("board_reset", { board: board.id });
-    loadBoard(cur, dailyMode);   // a daily retry stays the daily (one attempt, not yet submitted)
-  }
-
-  // ---------- daily (@jfun/growth-loop) ----------
-  // A stable per-device ref so shared links can attribute conversions (k-funnel).
-  function myRef() {
-    try {
-      let r = localStorage.getItem("moraine.ref.v1");
-      if (!r) { r = Math.random().toString(36).slice(2, 8); localStorage.setItem("moraine.ref.v1", r); }
-      return r;
-    } catch (e) { return "anon"; }
-  }
-  const closeOverlays = () => ["levelsOverlay", "introOverlay", "finaleOverlay"].forEach(id => $(id).classList.add("hidden"));
-
-  // Start (or resume) a daily. `day` defaults to today; pass a dayIndex for an
-  // inbound shared link. The board is a deterministic pick from the bank by the
-  // day seed — same instance for everyone, no server. If already played, the
-  // locked result is shown instead of a replay (Daily = one attempt).
-  function startDaily(day, ref) {
-    if (!GL) { openLevels(); return; }
-    if (!dailyMode) preDailyIdx = cur;   // remember the level we came from, to return there on exit
-    closeOverlays();
-    const di = (day == null) ? GL.Daily.dayIndex() : day;
-    dailyRef = ref || (di === dailyDay ? dailyRef : null);   // keep an inbound link's ref when re-entering the same day (don't drop attribution)
-    dailyDay = di;
-    dailyVariant = GL.ShareCard.pickVariant(dailyDay);
-    const idx = GL.Daily.seedForDay(dailyDay) % BOARDS.length;
-    loadBoard(idx, true);
-    if (GL.Daily.isPlayed(dailyDay)) {
-      // Already solved → show the locked result. loadBoard zeroed the HUD to 0/par and
-      // re-rendered the UNSOLVED board; restore the recorded count (so the counter reads
-      // e.g. 9/4, matching "Solved in 9 · goal 4") and clear the board so the dimmed
-      // backdrop reads as solved instead of a fresh, untouched puzzle.
-      const res = GL.Daily.playedResult(dailyDay) || {};
-      won = true;                              // lock the board from further swipes
-      if (res.swipes != null) { swipes = res.swipes; updateHud(); }
-      grid = grid.map(r => r.map(() => EMPTY)); renderBoard();
-      showDailyCard(Object.assign({ fresh: false, today: true, streak: GL.Streak.display(dailyDay) }, res, { stars: starsOf(res) }));
-    } else {
-      GL.LoopTrack.dailyStart(dailyDay);       // k-funnel: count only a genuine fresh start, not a locked re-view
-    }
-  }
-
-  const starsOf = r => (r && r.swipes != null && r.par != null) ? (r.swipes <= r.par ? 3 : r.swipes <= r.par + 1 ? 2 : 1) : 3;
-
-  function onDailyWin() {
-    const stars = swipes <= par ? 3 : swipes <= par + 1 ? 2 : 1;
-    // Only TODAY's solve is the user's official daily: it locks (one attempt) and feeds
-    // the streak. Solving a shared link for ANOTHER day (a friend's old/forwarded link)
-    // is a "try this board" — playable, but it must NOT lock the user out of that day or
-    // touch their streak (a lingering chat link silently wiping a streak was the worst bug).
-    const isToday = dailyDay === GL.Daily.dayIndex();
-    let streakCount = GL.Streak.display(GL.Daily.dayIndex());
-    if (isToday) {
-      GL.Daily.markPlayed(dailyDay, { swipes, par });      // one-attempt lock (today only)
-      streakCount = GL.Streak.bump(dailyDay).count;        // retention spine (today only)
-    }
-    GL.LoopTrack.dailySolve({ swipes, par });
-    if (dailyRef) GL.LoopTrack.playFromLink({ ref: dailyRef, variant: dailyVariant });
-    buzz("success", [18, 40, 18]); Sfx.win();
-    updateHud();
-    showDailyCard({ swipes, par, stars, streak: streakCount, fresh: true, today: isToday });
-  }
-
-  function showDailyCard(r) {
-    won = true;
-    const offDay = r.today === false;   // a shared board for a day that isn't the user's own daily
-    winStars.textContent = "★".repeat(r.stars) + "☆".repeat(3 - r.stars);
-    winTitle.textContent = r.fresh ? (offDay ? "Solved!" : (r.stars === 3 ? "Daily perfect!" : "Daily solved!")) : "Today's daily";
-    winLine.innerHTML = (r.swipes != null) ? `Solved in <b>${r.swipes}</b> · goal ${r.par}` : "Solved";
-    winStreak.textContent = (!offDay && r.streak > 0) ? `🔥 ${r.streak}-day streak` : "";
-    winStreak.classList.toggle("hidden", !winStreak.textContent);
-    btnNext.classList.add("hidden");
-    btnRetry.classList.add("hidden");
-    btnShare.classList.remove("hidden");
-    btnDailyLevels.classList.remove("hidden");
-    $("stage").classList.add("dimmed");
-    if (r.fresh) launchConfetti("winConfetti");
-    setTimeout(() => winCard.classList.remove("hidden"), r.fresh ? 360 : 0);
-  }
-
-  // Leave the (one-attempt, finished) daily and return to normal level play on the
-  // board we came from — so dismissing the daily card never strands the player on a
-  // blank, locked daily board.
-  function exitDaily() {
-    winCard.classList.add("hidden");
-    $("stage").classList.remove("dimmed");
-    loadBoard(preDailyIdx);   // no daily flag → dailyMode=false, a real playable level
-  }
-
-  // The share card IS the ad: spoiler-free (no board state), ownable ("#N"),
-  // carries the instant-play link, A/B variant chosen per day.
-  async function shareDaily() {
-    if (!GL) return;
-    Sfx.tap();
-    const n = GL.Daily.number(dailyDay);
-    const res = GL.Daily.playedResult(dailyDay) || { swipes: swipes, par: par };
-    const line = GL.ShareCard.variantLine(dailyVariant, { line: `Solved in ${res.swipes} · goal ${res.par}` });
-    const url = GL.Daily.buildLink(DAILY_URL, { d: dailyDay, ref: myRef() });
-    let channel = "none";
-    try {
-      const png = await GL.ShareCard.render({
-        title: "Moraine", n, line, url,
-        accent: "#ffc24a", bg1: "#1a2138", bg2: "#0b1020",
-        footer: "play today's board →",
-      });
-      channel = await GL.ShareCard.share(png, { url, text: `Moraine #${n} — ${line}`, title: "Moraine", filename: `moraine-${n}` });
-    } catch (e) {}
-    GL.LoopTrack.cardShare({ variant: dailyVariant, channel });
+    loadBoard(cur);
   }
 
   function finishSwipe(tok) {
@@ -301,7 +161,6 @@
 
   function onWin() {
     won = true;
-    if (dailyMode) { onDailyWin(); return; }   // daily has its own lock/streak/share flow
     const beat = swipes <= par;
     const prevBest = progress[board.id];
     const improved = prevBest !== undefined && swipes < prevBest;   // beat your own record
@@ -560,16 +419,12 @@
   document.addEventListener("gesturestart", e => e.preventDefault());   // block pinch-zoom
 
   window.addEventListener("keydown", e => {
-    // A full-screen overlay swallows all board keys — otherwise arrows/WASD would
-    // swipe (and could silently SOLVE + record) the live board behind the modal,
-    // and z/r would act on it unseen. (The web /play surface is keyboard-primary.)
-    if (["levelsOverlay", "introOverlay", "finaleOverlay"].some(id => !$(id).classList.contains("hidden"))) return;
     const k = e.key.toLowerCase();
     const map = { arrowup: "U", w: "U", arrowdown: "D", s: "D", arrowleft: "L", a: "L", arrowright: "R", d: "R" };
     if (map[k]) { e.preventDefault(); trySwipe(map[k]); }
     else if (k === "z") undo();
     else if (k === "r") reset();
-    else if ((k === "n" || k === "enter") && won && !dailyMode) goNext();
+    else if ((k === "n" || k === "enter") && won) goNext();
   });
 
   // Advance to the next board — but the LAST board doesn't silently wrap back to
@@ -592,22 +447,7 @@
   syncSound();
 
   $("btnLevels").onclick = openLevels;
-  // Closing the level map: if it was opened over a FINISHED daily (card up), exit the
-  // daily to a real level — otherwise ✕/backdrop strands the player on the blank,
-  // dimmed daily board (the same dead-end btnDailyLevels avoids).
-  const closeLevels = () => { $("levelsOverlay").classList.add("hidden"); if (dailyMode && won) exitDaily(); };
-  $("btnLevelsClose").onclick = closeLevels;
-
-  // ---- daily buttons ----
-  $("btnDaily").onclick = () => { Sfx.tap(); startDaily(); };
-  btnShare.onclick = shareDaily;
-  // "Levels" leaves the daily first (loads the level we came from), THEN opens the map —
-  // so closing the map reveals a real board, never the blank finished-daily board.
-  btnDailyLevels.onclick = () => { exitDaily(); openLevels(); };
-  // Tap outside the daily result card to dismiss it back to level play (a clear close).
-  $("stage").addEventListener("click", e => {
-    if (dailyMode && !winCard.classList.contains("hidden") && !winCard.contains(e.target)) exitDaily();
-  });
+  $("btnLevelsClose").onclick = () => $("levelsOverlay").classList.add("hidden");
 
   // ---- finale buttons ----
   const finaleOverlay = $("finaleOverlay");
@@ -627,7 +467,7 @@
   $("btnIntroClose").onclick = closeIntro;
   $("btnHowto").onclick = () => { $("levelsOverlay").classList.add("hidden"); openIntro(); };
   $("introOverlay").addEventListener("click", e => { if (e.target.id === "introOverlay") closeIntro(); });
-  $("levelsOverlay").addEventListener("click", e => { if (e.target.id === "levelsOverlay") closeLevels(); });
+  $("levelsOverlay").addEventListener("click", e => { if (e.target.id === "levelsOverlay") $("levelsOverlay").classList.add("hidden"); });
 
   // A level is unlocked if it's the first one, or the PREVIOUS one has been solved.
   // (Re-tapping an unlocked level restarts it — the only voluntary restart path now
@@ -775,14 +615,7 @@
   loadBoard(0);
   let seenIntro = false;
   try { seenIntro = !!localStorage.getItem(INTRO_KEY); } catch (e) {}
-
-  // Inbound shared link (?d=<day>&ref=<id>) opens the exact daily instantly — the
-  // invite half of the loop. Skipped under the ?shot= capture harness.
-  const _hasShot = new URLSearchParams(location.search).has("shot");
-  const _link = GL && !_hasShot ? GL.Daily.parseLink() : {};
-  if (_link.ref) GL.LoopTrack.linkOpen({ ref: _link.ref, variant: GL.ShareCard.pickVariant(_link.d) });
-  if (!_hasShot && _link.d != null) startDaily(_link.d, _link.ref);
-  else if (!seenIntro) openIntro();   // first launch → teach the rules
+  if (!seenIntro) openIntro();   // first launch → teach the rules
 
   // ---- dev screenshot harness (App Store captures) — inert unless ?shot= is set ----
   //   ?shot=play&b=<id>  ·  ?shot=win&b=<id>&s=<1-3>  ·  ?shot=levels  ·  ?shot=howto
