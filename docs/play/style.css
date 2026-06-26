@@ -1,0 +1,337 @@
+/* MORAINE — greybox styling. Dark, calm, "gravity/space" feel. The board is
+   rendered as DOM tiles (game.js) — one element per cell — so the iOS compositor
+   pixel-snaps each tile and nothing shimmers when idle. CSS handles the tile look,
+   chrome, the win card and the level grid. */
+:root {
+  --bg0: #0c0e17;
+  --bg1: #141829;
+  --ink: #e9ecfb;
+  --muted: #8b93b9;
+  --line: rgba(255,255,255,.08);
+  --card: #1b2036;
+  --block: #5b6cff;
+  --target: #ffc24a;
+  --good: #54e0a3;
+  --pill: rgba(255,255,255,.06);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* Lock the WKWebView without breaking the dark theme, and WITHOUT position:fixed —
+   fixed elements visibly jitter/scale during iOS webview overscroll bounce, which
+   was the on-device "shake". Normal flow + overflow:hidden instead; the dark bg is
+   guaranteed by html's opaque fallback + the native isOpaque=false. Overscroll
+   itself is killed natively (AppDelegate continuous scroll/zoom lock). */
+html, body {
+  height: 100%; width: 100%; margin: 0;
+  overflow: hidden; overscroll-behavior: none;
+  touch-action: none;
+}
+html { background: var(--bg0); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: radial-gradient(130% 90% at 50% -10%, #232a49 0%, var(--bg1) 38%, var(--bg0) 100%), var(--bg0);
+  user-select: none; -webkit-user-select: none;
+}
+#app {
+  height: 100%;
+  display: flex; flex-direction: column;
+  max-width: 560px; margin: 0 auto;
+  padding: calc(var(--safe-top) + 8px) 14px calc(var(--safe-bot) + 10px);
+}
+
+/* ---- top bar ---- */
+#topbar { display: flex; align-items: center; gap: 12px; height: 52px; flex: 0 0 auto; }
+#boardName { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+#bnLabel { font-size: 18px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.goal { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; }
+#counter { text-align: right; line-height: 1.05; flex: 0 0 auto; }
+#cSwipes { font-size: 22px; font-weight: 800; color: var(--ink); }
+.cslash { font-size: 16px; color: var(--muted); margin: 0 1px; }
+#cPar { font-size: 18px; font-weight: 700; color: var(--target); }
+#counter.over #cSwipes { color: #ff7a8a; }
+.clabel { display: block; font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.3px; margin-top: 1px; }
+
+.iconbtn {
+  flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px;
+  background: var(--pill); border: 1px solid var(--line); color: var(--ink);
+  display: grid; place-items: center; cursor: pointer; font-size: 16px;
+  transition: background .15s, transform .08s;
+}
+.iconbtn:active { transform: scale(.92); }
+.iconbtn:hover { background: rgba(255,255,255,.1); }
+
+/* ---- stage / board ---- */
+#stage { flex: 1 1 auto; position: relative; min-height: 0; }
+
+/* The board is a DOM tile container, NOT a canvas. Each .tile / .socket is its
+   own element, so the iOS compositor pixel-snaps them individually and nothing
+   resamples ("shimmers") when the board sits idle between moves.
+   left/top/width/height/border-radius are set in resize(). */
+#board {
+  position: absolute; touch-action: none;
+  background: rgba(0,0,0,.22);
+  border: 1px solid rgba(255,255,255,.06);
+  /* contain the tile z-indexes — without a stacking context here, .tile{z-index:1}
+     leaks into the page and paints the tiles OVER the win/stuck card. */
+  isolation: isolate;
+}
+/* no-op-swipe feedback: a short directional shake (--nx/--ny set in JS) */
+#board.nudge { animation: boardNudge .18s ease; }
+@keyframes boardNudge {
+  0%, 100% { transform: translate(0, 0); }
+  45%      { transform: translate(var(--nx, 0), var(--ny, 0)); }
+}
+
+.socket, .tile {
+  position: absolute; box-sizing: border-box;
+  pointer-events: none; border-radius: 22%;
+}
+.socket {
+  background: rgba(255,255,255,.028);
+  border: 1px solid rgba(255,255,255,.05);
+  z-index: 0;
+}
+/* tiles: flat fills (no gradients) — matches the calm empty cells, reads solid.
+   NOT permanently layer-promoted: the Web Animations API promotes a tile only
+   while it's actually moving, so idle tiles stay plain pixel-snapped paint. */
+.tile { z-index: 1; transform-origin: center center; }
+.tile.wall   { background: #3a4068; }
+.tile.block  { background: #5b6cff; }
+.tile.target { background: #ffc24a; }
+/* soft top highlight (sheen) on the movable tiles */
+.tile.block::before, .tile.target::before {
+  content: ""; position: absolute;
+  left: 12%; top: 10%; width: 76%; height: 30%;
+  border-radius: 28%; background: rgba(255,255,255,.08);
+}
+/* the target's white diamond "light" mark */
+.tile.target::after {
+  content: ""; position: absolute;
+  left: 50%; top: 50%; width: 28%; height: 28%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 12%; background: rgba(255,255,255,.9);
+}
+
+/* first-board "swipe down" cue: a pair of chevrons that bob downward and fade */
+#swipeCue {
+  position: absolute; left: 50%; top: 30%; width: 22%;
+  pointer-events: none; z-index: 2;
+  animation: cueBob 1.5s ease-in-out infinite;
+}
+#swipeCue svg { display: block; width: 100%; height: auto; }
+@keyframes cueBob {
+  0%   { transform: translate(-50%, 0);    opacity: .15; }
+  50%  { transform: translate(-50%, 55%);  opacity: .65; }
+  100% { transform: translate(-50%, 115%); opacity: 0; }
+}
+
+/* ---- win card ---- */
+.card {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.9);
+  width: min(86%, 360px); background: var(--card); border: 1px solid var(--line);
+  border-radius: 20px; padding: 22px 22px 20px; text-align: center;
+  box-shadow: 0 24px 70px rgba(0,0,0,.55); opacity: 0; pointer-events: none;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.2,1.3,.4,1);
+}
+.card:not(.hidden) { opacity: 1; transform: translate(-50%,-50%) scale(1); pointer-events: auto; }
+.card.hidden { display: block; }
+.card.stuck { border-color: rgba(255,170,80,.35); }
+.stuckMark { font-size: 30px; height: 34px; color: var(--target); }
+.card.stuck h2 { color: #ffcf8a; }
+.card.stuck p { margin: 6px 4px 18px; color: var(--muted); font-size: 14.5px; line-height: 1.4; }
+
+.winbtns .primary.big { padding: 13px 34px; font-size: 16px; }
+
+.stars { font-size: 30px; letter-spacing: 4px; height: 34px; }
+.card h2 { margin: 6px 0 4px; font-size: 26px; letter-spacing: .3px; }
+#winLine { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+#winLine b { color: var(--good); }
+.winStreak { margin: -10px 0 16px; font-size: 16px; font-weight: 700; color: var(--target, #ffc24a); }
+.winStreak.hidden { display: none; }
+.winbtns { display: flex; gap: 10px; justify-content: center; align-items: stretch; }
+.winbtns button { white-space: nowrap; }
+.winbtns .ghost { padding: 13px 22px; font-size: 15px; }
+/* On the dimmed celebration a transparent ghost vanishes — give Retry a solid,
+   clearly-visible secondary fill so it reads as a real choice beside Next. */
+.win .winbtns .ghost { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.24); color: #fff; }
+.win .winbtns .ghost:active { transform: scale(.95); }
+
+/* ---- win celebration (dimmed board, big praise, radiant hero burst + confetti) ---- */
+#stage.dimmed #board { filter: brightness(.4) saturate(.85); transition: filter .3s ease; }
+#winConfetti { z-index: 1; }
+.card.win { background: none; border: none; box-shadow: none; width: min(92%, 420px); padding: 0; z-index: 2; }
+.win .praise {
+  font-size: 34px; font-weight: 800; letter-spacing: .5px; color: #fff; margin: 0 0 2px;
+  text-shadow: 0 2px 14px rgba(0,0,0,.55), 0 0 22px rgba(255,194,74,.35);
+  animation: pop .5s cubic-bezier(.2,1.5,.4,1) both;
+}
+.winHero { position: relative; height: 140px; display: grid; place-items: center; }
+.winBurst {
+  position: absolute; left: 50%; top: 50%; width: 250px; height: 250px; transform: translate(-50%,-50%);
+  pointer-events: none; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255,194,74,.13) 0 6deg, transparent 6deg 18deg),
+              radial-gradient(circle, rgba(255,194,74,.30) 0%, rgba(255,194,74,0) 62%);
+  -webkit-mask-image: radial-gradient(circle, #000 0 38%, transparent 72%);
+          mask-image: radial-gradient(circle, #000 0 38%, transparent 72%);
+  animation: burstPop .55s cubic-bezier(.2,1.3,.4,1) both;
+}
+.win .stars {
+  position: relative; font-size: 54px; letter-spacing: 6px; height: auto; line-height: 1;
+  color: var(--target); text-shadow: 0 4px 18px rgba(255,194,74,.5);
+  animation: pop .5s cubic-bezier(.2,1.5,.4,1) .08s both;
+}
+.win #winLine { margin: 8px 0 18px; font-size: 15px; }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } }
+@keyframes burstPop { from { transform: translate(-50%,-50%) scale(.3); opacity: 0; } }
+
+/* ---- footer controls ---- */
+#controls { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; height: 56px; }
+#hint { flex: 1; text-align: center; color: #a9b1d6; font-size: 15px; font-weight: 500;
+        line-height: 1.35; min-height: 1em; transition: opacity .25s; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  padding: 9px 13px; border-radius: 13px; background: var(--pill);
+  border: 1px solid var(--line); color: var(--ink); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .15s, transform .08s, opacity .15s;
+}
+.pill:active { transform: scale(.95); }
+.pill:hover { background: rgba(255,255,255,.1); }
+.pill:disabled { opacity: .35; pointer-events: none; }
+
+.primary {
+  padding: 11px 22px; border-radius: 13px; border: none; cursor: pointer;
+  background: linear-gradient(180deg, #6b79ff, #4d59e6); color: #fff;
+  font-size: 15px; font-weight: 700; box-shadow: 0 8px 22px rgba(77,89,230,.4);
+  transition: transform .08s;
+}
+.primary:active { transform: scale(.95); }
+.ghost {
+  padding: 11px 20px; border-radius: 13px; cursor: pointer; font-size: 15px; font-weight: 600;
+  background: transparent; border: 1px solid var(--line); color: var(--ink);
+}
+.ghost:active { transform: scale(.95); }
+
+/* ---- levels overlay ---- */
+.overlay {
+  position: fixed; inset: 0; background: rgba(6,8,15,.74); backdrop-filter: blur(6px);
+  display: grid; place-items: center; z-index: 20; padding: 20px;
+  transition: opacity .2s; -webkit-backdrop-filter: blur(6px);
+}
+.overlay.hidden { opacity: 0; pointer-events: none; }
+.overlayCard {
+  width: min(100%, 420px); max-height: 80vh; background: var(--card);
+  border: 1px solid var(--line); border-radius: 22px; padding: 18px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.6); overflow: auto;
+}
+.overlayHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.overlayHead h2 { margin: 0; font-size: 20px; }
+#levelGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.lvl {
+  position: relative; aspect-ratio: 1; border-radius: 14px; cursor: pointer;
+  background: var(--pill); border: 1px solid var(--line); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: transform .08s, background .15s; padding: 6px;
+}
+.lvl:active { transform: scale(.94); }
+.lvl:hover { background: rgba(255,255,255,.1); }
+.lvl .num { font-size: 20px; font-weight: 800; }
+.lvl .nm { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.1; }
+.lvl .par { font-size: 10px; color: var(--target); font-weight: 700; }
+.lvl.solved { background: rgba(84,224,163,.13); border-color: rgba(84,224,163,.4); }
+.lvl.solved .num { color: var(--good); }
+.lvl .crown { position: absolute; top: 5px; right: 7px; font-size: 12px; }
+.lvl .lvstars { font-size: 11px; color: var(--target); letter-spacing: 1px; height: 13px; line-height: 1; }
+.lvl .lvbest { font-size: 9px; color: var(--good); font-weight: 700; }
+.lvl.current { outline: 2px solid var(--block); outline-offset: 1px; }
+/* locked levels in the progression — dimmed, not selectable */
+.lvl.locked { opacity: .4; }
+.lvl.locked:hover { background: var(--pill); }
+.lvl:disabled { cursor: default; transform: none; }
+.lvl .lock { font-size: 19px; }
+
+/* ---- how-to-play ---- */
+.howto {
+  width: 100%; margin-bottom: 12px; padding: 11px; border-radius: 12px; cursor: pointer;
+  background: rgba(110,125,255,.12); border: 1px solid rgba(110,125,255,.3);
+  color: #c3cbff; font-size: 14px; font-weight: 600;
+}
+.howto:active { transform: scale(.97); }
+.overlayCard.intro { max-width: 360px; text-align: center; }
+.overlayCard.intro h2 { margin: 2px 0 10px; font-size: 22px; }
+.demo { display: block; width: 220px; height: 220px; margin: 0 auto 12px; border-radius: 16px; }
+.democap { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #cdd4ff; min-height: 1.3em; }
+.demosub { margin: 0 0 18px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.demosub b { color: var(--target); }
+.intro .primary.big { width: 100%; margin-top: 2px; padding: 13px; font-size: 16px; }
+
+/* ---- grand finale (last level cleared) ---- */
+.finaleCard { position: relative; z-index: 1; text-align: center; max-width: 360px; }
+/* confetti rains over the whole blurred backdrop, BEHIND the card (lower z-index,
+   pointer-events:none so taps still reach the overlay). Pieces are generated in JS. */
+.confetti-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.confetti { position: absolute; top: -10%; border-radius: 2px; opacity: 0; will-change: transform, opacity; }
+@keyframes confettiFall {
+  0%   { opacity: 0; transform: translate3d(0, -10vh, 0) rotate(0); }
+  8%   { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--drift, 0), 112vh, 0) rotate(var(--rot, 360deg)); }
+}
+.finBadge { margin: 2px auto 10px; width: 78px; height: 78px;
+            animation: finPop .5s cubic-bezier(.2,1.45,.4,1) both; }
+.finBadge svg { filter: drop-shadow(0 10px 24px rgba(77,89,230,.5)); }
+@keyframes finPop {
+  0%   { transform: scale(.4) rotate(-14deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.finaleCard h2 { font-size: 25px; margin: 2px 0 4px; letter-spacing: .3px; }
+.finaleCard .finSub { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+.finStats { display: flex; gap: 10px; justify-content: center; margin: 0 0 14px; }
+.finStat {
+  flex: 1; background: var(--pill); border: 1px solid var(--line);
+  border-radius: 14px; padding: 12px 6px; display: flex; flex-direction: column; gap: 4px;
+}
+.finStatVal { font-size: 23px; font-weight: 800; line-height: 1; }
+.finStat.star .finStatVal b { color: var(--target); }
+.finStat.perfect .finStatVal b { color: var(--good); }
+.finStatSlash { color: var(--muted); font-weight: 600; font-size: 15px; margin: 0 1px; }
+.finStat .finStatVal > span:last-child { color: var(--muted); font-size: 15px; font-weight: 700; }
+.finStatLbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.finFlawless { margin: -4px 0 14px; color: var(--target); font-size: 13px; font-weight: 700; }
+.finSoon {
+  background: rgba(110,125,255,.12); border: 1px solid rgba(110,125,255,.3);
+  border-radius: 13px; padding: 11px 13px; margin: 0 0 16px;
+  color: #c3cbff; font-size: 13.5px; line-height: 1.45;
+}
+.finSoon b { color: #e6e9ff; }
+.finaleCard .primary.big { width: 100%; padding: 13px; font-size: 16px; }
+
+/* ---- tablet / iPad: scale the phone layout up so the board fills the screen ---- */
+@media (min-width: 768px) and (min-height: 1000px) {
+  #app { max-width: 1100px; padding-left: 22px; padding-right: 22px; }
+  #topbar { height: 66px; gap: 16px; }
+  .iconbtn { width: 48px; height: 48px; border-radius: 14px; font-size: 19px; }
+  #bnLabel { font-size: 24px; }
+  .goal { font-size: 13px; letter-spacing: 1.4px; }
+  #cSwipes { font-size: 28px; }
+  #cPar { font-size: 22px; }
+  .cslash { font-size: 20px; }
+  .clabel { font-size: 11px; letter-spacing: 1.5px; }
+  #controls { height: 72px; }
+  #hint { font-size: 19px; }
+  .card.win { width: min(86%, 560px); }
+  .win .praise { font-size: 44px; }
+  .win .stars { font-size: 72px; }
+  .win #winLine { font-size: 19px; }
+  .winbtns .primary.big { padding: 16px 42px; font-size: 19px; }
+  .winbtns .ghost { padding: 16px 24px; font-size: 18px; }
+  /* levels picker fills the iPad canvas: wider card + 5-col grid (phone keeps 420px/3-col).
+     intro card stays narrow via the more-specific .overlayCard.intro rule. */
+  #levelsOverlay .overlayCard { width: min(94%, 880px); max-height: 88vh; }
+  #levelGrid { grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .overlayHead h2 { font-size: 24px; }
+  .lvl .num { font-size: 24px; }
+  .lvl .nm { font-size: 12px; }
+}
+
+.hidden { display: none !important; }
