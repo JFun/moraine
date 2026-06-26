@@ -34,6 +34,7 @@
   let dailyDay = 0;            // its dayIndex (the handle)
   let dailyRef = null;         // inbound ref captured from a shared link
   let dailyVariant = null;     // share-card A/B variant for this daily
+  let preDailyIdx = 0;         // level board to return to when leaving the daily
 
   const N = 6;
   const { EMPTY, BLOCK, WALL, TARGET } = E;
@@ -147,6 +148,9 @@
 
   function undo() {
     if (playing || !history.length) return;
+    // A SUBMITTED daily is one-attempt: 'z' must not rewind past the win to replay it
+    // (would re-fire the solve funnel + overwrite the recorded result). Same guard reset() has.
+    if (dailyMode && GL && GL.Daily.isPlayed(dailyDay)) return;
     $("stage").classList.remove("dimmed");
     const prev = history.pop();
     grid = prev.grid; swipes = prev.swipes;
@@ -185,6 +189,7 @@
   // locked result is shown instead of a replay (Daily = one attempt).
   function startDaily(day, ref) {
     if (!GL) { openLevels(); return; }
+    if (!dailyMode) preDailyIdx = cur;   // remember the level we came from, to return there on exit
     closeOverlays();
     const di = (day == null) ? GL.Daily.dayIndex() : day;
     dailyRef = ref || (di === dailyDay ? dailyRef : null);   // keep an inbound link's ref when re-entering the same day (don't drop attribution)
@@ -243,6 +248,15 @@
     $("stage").classList.add("dimmed");
     if (r.fresh) launchConfetti("winConfetti");
     setTimeout(() => winCard.classList.remove("hidden"), r.fresh ? 360 : 0);
+  }
+
+  // Leave the (one-attempt, finished) daily and return to normal level play on the
+  // board we came from — so dismissing the daily card never strands the player on a
+  // blank, locked daily board.
+  function exitDaily() {
+    winCard.classList.add("hidden");
+    $("stage").classList.remove("dimmed");
+    loadBoard(preDailyIdx);   // no daily flag → dailyMode=false, a real playable level
   }
 
   // The share card IS the ad: spoiler-free (no board state), ownable ("#N"),
@@ -546,6 +560,10 @@
   document.addEventListener("gesturestart", e => e.preventDefault());   // block pinch-zoom
 
   window.addEventListener("keydown", e => {
+    // A full-screen overlay swallows all board keys — otherwise arrows/WASD would
+    // swipe (and could silently SOLVE + record) the live board behind the modal,
+    // and z/r would act on it unseen. (The web /play surface is keyboard-primary.)
+    if (["levelsOverlay", "introOverlay", "finaleOverlay"].some(id => !$(id).classList.contains("hidden"))) return;
     const k = e.key.toLowerCase();
     const map = { arrowup: "U", w: "U", arrowdown: "D", s: "D", arrowleft: "L", a: "L", arrowright: "R", d: "R" };
     if (map[k]) { e.preventDefault(); trySwipe(map[k]); }
@@ -574,12 +592,22 @@
   syncSound();
 
   $("btnLevels").onclick = openLevels;
-  $("btnLevelsClose").onclick = () => $("levelsOverlay").classList.add("hidden");
+  // Closing the level map: if it was opened over a FINISHED daily (card up), exit the
+  // daily to a real level — otherwise ✕/backdrop strands the player on the blank,
+  // dimmed daily board (the same dead-end btnDailyLevels avoids).
+  const closeLevels = () => { $("levelsOverlay").classList.add("hidden"); if (dailyMode && won) exitDaily(); };
+  $("btnLevelsClose").onclick = closeLevels;
 
   // ---- daily buttons ----
   $("btnDaily").onclick = () => { Sfx.tap(); startDaily(); };
   btnShare.onclick = shareDaily;
-  btnDailyLevels.onclick = () => { winCard.classList.add("hidden"); $("stage").classList.remove("dimmed"); openLevels(); };
+  // "Levels" leaves the daily first (loads the level we came from), THEN opens the map —
+  // so closing the map reveals a real board, never the blank finished-daily board.
+  btnDailyLevels.onclick = () => { exitDaily(); openLevels(); };
+  // Tap outside the daily result card to dismiss it back to level play (a clear close).
+  $("stage").addEventListener("click", e => {
+    if (dailyMode && !winCard.classList.contains("hidden") && !winCard.contains(e.target)) exitDaily();
+  });
 
   // ---- finale buttons ----
   const finaleOverlay = $("finaleOverlay");
@@ -599,7 +627,7 @@
   $("btnIntroClose").onclick = closeIntro;
   $("btnHowto").onclick = () => { $("levelsOverlay").classList.add("hidden"); openIntro(); };
   $("introOverlay").addEventListener("click", e => { if (e.target.id === "introOverlay") closeIntro(); });
-  $("levelsOverlay").addEventListener("click", e => { if (e.target.id === "levelsOverlay") $("levelsOverlay").classList.add("hidden"); });
+  $("levelsOverlay").addEventListener("click", e => { if (e.target.id === "levelsOverlay") closeLevels(); });
 
   // A level is unlocked if it's the first one, or the PREVIOUS one has been solved.
   // (Re-tapping an unlocked level restarts it — the only voluntary restart path now
