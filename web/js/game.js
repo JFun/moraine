@@ -29,7 +29,7 @@
     epoch: new Date("2026-06-25T00:00:00Z"),   // launch day → Daily #1
     track: window.Track,
   });
-  const DAILY_URL = "https://moraine.app/";     // instant-play web link the card carries
+  const DAILY_URL = "https://jfun.github.io/moraine/play/";   // instant-play web surface the share card links to
   let dailyMode = false;       // the current board is today's daily
   let dailyDay = 0;            // its dayIndex (the handle)
   let dailyRef = null;         // inbound ref captured from a shared link
