@@ -1,4 +1,4 @@
-/* @studio/growth-loop — the hero. The one piece of shared code that attacks the
+/* @jfun/growth-loop — the hero. The one piece of shared code that attacks the
    real problem (distribution): a drop-in daily + streak + spoiler-free share card
    + the k-funnel, fully instrumented, so no future game launches loop-less again.
 

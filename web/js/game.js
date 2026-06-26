@@ -20,7 +20,7 @@
   const Track = window.Track || { ev() {} };
   const Sfx = window.Sfx || { unlock() {}, slide() {}, clear() {}, blocked() {}, win() {}, dead() {}, tap() {}, toggle() { return false; }, get enabled() { return false; } };
 
-  // ---- @studio/growth-loop: the daily + streak + share loop (Moraine v1.1) ----
+  // ---- @jfun/growth-loop: the daily + streak + share loop (Moraine v1.1) ----
   // The package owns the loop; this file just wires it to the board surface. A
   // graceful stub keeps the level game working if the script ever fails to load.
   const GL = window.GrowthLoop || null;
@@ -164,7 +164,7 @@
     loadBoard(cur, dailyMode);   // a daily retry stays the daily (one attempt, not yet submitted)
   }
 
-  // ---------- daily (@studio/growth-loop) ----------
+  // ---------- daily (@jfun/growth-loop) ----------
   // A stable per-device ref so shared links can attribute conversions (k-funnel).
   function myRef() {
     try {

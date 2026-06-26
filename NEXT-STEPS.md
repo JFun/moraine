@@ -10,7 +10,7 @@
 
 ## ✅ UPDATE (June 26, 2026) — P1 loop is BUILT and wired (v1.1 ready)
 
-The daily + share + streak loop now ships via **`@studio/growth-loop`** (the hero
+The daily + share + streak loop now ships via **`@jfun/growth-loop`** (the hero
 package in the `jfun` studio monorepo), adopted here as its **first consumer** —
 the inlined copy lives at `web/js/growth-loop.js`. Wired in `web/js/game.js`:
 
